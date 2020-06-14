@@ -1,0 +1,4 @@
+{
+    "git.ignoreLimitWarning": true,
+    "python.pythonPath": "/home/tl/my_tensorflow/venv/bin/python3"
+}
