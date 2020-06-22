@@ -179,7 +179,7 @@ def convert_to_mit_anno(label):
 def get_data(file_path,resample_rate=280,use_mit=True,list_patience=None,mode='train',test_mode='intra'):
     if use_mit and test_mode=='intra':
         if mode=='train':
-            list_patience=[101, 106, 108,109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220, 223,230]
+            list_patience=[101]#[101, 106, 108,109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220, 223,230]
         else:
             list_patience=[100, 103, 105,111, 113, 117, 121, 123, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
     else:
@@ -217,10 +217,9 @@ def get_data(file_path,resample_rate=280,use_mit=True,list_patience=None,mode='t
         # print(len(patience_anno))
         # print('----------')
         # for i in range(len(data_patience[patience][0])):
-        #     if data_patience[patience][0][i]!='N':
+        #     if data_patience[patience][1][i]!='N':
         #         plt.plot(data_patience[patience][0][i])
         #         plt.text(100,1,data_patience[patience][1][i])
-        #         print(i)
         #         plt.show()
     return data_patience
 
@@ -228,7 +227,7 @@ def get_data(file_path,resample_rate=280,use_mit=True,list_patience=None,mode='t
 if __name__=='__main__':
     np.set_printoptions(suppress=True)
     dataset_path='Data/mit-bih'
-    data_patience=get_data(dataset_path,use_mit=True)
+    data_patience=get_data(dataset_path,use_mit=True,mode='train')
     anno_stat={'N':0,'V':0,'F':0,'S':0,'Q':0}
     for patience in data_patience:
         for idx,anno in enumerate(data_patience[patience][1]):

@@ -26,12 +26,15 @@ def train(args,test_mode='intra',):
 
     model=SingleBackBoneNet()
     model=model.cuda() if args.gpu else model.cpu()
+    for name,param in model.named_parameters():
+        print(name)    
+
 
     lr=args.lr
-    optimizer=optim.Adam(model.parameters(),lr=lr, weight_decay=0.0005)
+    optimizer=optim.Adam(model.parameters(),lr=lr)
     scheduler=optim.lr_scheduler.StepLR(optimizer,step_size=args.step_size,gamma=args.gamma)
 
-    focal_lost=FocalLoss(alpha=torch.Tensor([0.05,0.15,0.5,0.3]))
+    focal_lost=FocalLoss(alpha=torch.Tensor([0.5,5,50,20]))
     focal_lost=focal_lost.cuda() if args.gpu else focal_lost.cpu()
     macro_f1_lost=MacroF1Loss().cuda() if args.gpu else MacroF1Loss().cpu()
     ce_weights_lost=CrossEntropyWithWeights(weigths=[0.5,5,50,20])
@@ -61,22 +64,23 @@ def train(args,test_mode='intra',):
             optimizer.zero_grad()
             
             predict_logits,attention_score=model(inputs.float())
-            loss=ce_weights_lost(y_pred=predict_logits, y_true=labels.long())
+            loss=0.9*macro_f1_lost(y_pred=predict_logits, y_true=one_hot_labels.float())\
+                 +0.1*ce_weights_lost(y_pred=predict_logits, y_true=labels.long())
 
             loss.backward()
             optimizer.step()
 
             n = inputs.size(0)
-            predict_labels=torch.argmax(predict_logits,dim=1)
+            predict_labels=torch.argmax(predict_logits,dim=1).cpu().data.numpy()
+            labels=labels.cpu().data.numpy()
+            loss_log.update(loss.cpu().data,n)
 
-            loss_log.update(loss.data,n)
-
-            print(labels.data)
-            print(predict_labels.data)
-            f1_macro_log.update(f1_score(y_true=labels.data,y_pred=predict_labels.data,average='macro'),n)
-            precision_macro_log.update(precision_score(y_true=labels.data,y_pred=predict_labels.data,average='macro'),n)
-            recall_macro_log.update(recall_score(y_true=labels.data,y_pred=predict_labels.data,average='macro'),n)
-            accuracy_log.update(accuracy_score(y_true=labels.data,y_pred=predict_labels.data),n)
+            print(labels)
+            print(predict_labels)
+            f1_macro_log.update(f1_score(y_true=labels,y_pred=predict_labels,average='macro'),n)
+            precision_macro_log.update(precision_score(y_true=labels,y_pred=predict_labels,average='macro'),n)
+            recall_macro_log.update(recall_score(y_true=labels,y_pred=predict_labels,average='macro'),n)
+            accuracy_log.update(accuracy_score(y_true=labels,y_pred=predict_labels),n)
 
             if i % args.echo_batches == args.echo_batches - 1:
                 print('TRAIN epoch:%d, mini-batch:%3d, lr=%f, Loss= %.4f, f1= %.4f, precision= %.4f, recall= %.4f, acc= %.4f' % (
@@ -88,13 +92,12 @@ def train(args,test_mode='intra',):
         epoch + 1, loss_log.avg, f1_macro_log.avg,precision_macro_log.avg,recall_macro_log.avg,accuracy_log.avg))
         log_file.flush()
         scheduler.step()
-        torch.save(model.state_dict,args.model_save_dir +'/'+'save_' +str(test_mode)+'_' +str(epoch)+'.pth')
+        torch.save(model.state_dict(),args.model_save_dir +'/'+'save_' +str(test_mode)+'_' +str(epoch)+'.pth')
 
 
 
         print("######################  VAL   #####################")
-
-        loss_log_val=AvgrageMeter()
+        model.eval()
         f1_macro_log_val=AvgrageMeter()
         precision_macro_log_val=AvgrageMeter()
         recall_macro_log_val=AvgrageMeter()
@@ -117,21 +120,22 @@ def train(args,test_mode='intra',):
 
                 n = inputs.size(0)
                 predict_logits,attention_score=model(inputs.float())
-                predict_labels=torch.argmax(predict_logits,dim=1)
 
-                loss_log_val.update(loss.data,n)
-                f1_macro_log_val.update(f1_score(y_true=labels.data,y_pred=predict_labels.data,average='macro'),n)
-                precision_macro_log_val.update(precision_score(y_true=labels.data,y_pred=predict_labels.data,average='macro'),n)
-                recall_macro_log_val.update(recall_score(y_true=labels.data,y_pred=predict_labels.data,average='macro'),n)
-                accuracy_log_val.update(accuracy_score(y_true=labels.data,y_pred=predict_labels.data),n)
+                predict_labels=torch.argmax(predict_logits,dim=1).cpu().data.numpy()
+                labels=labels.cpu().data.numpy()
+
+                f1_macro_log_val.update(f1_score(y_true=labels,y_pred=predict_labels,average='macro'),n)
+                precision_macro_log_val.update(precision_score(y_true=labels,y_pred=predict_labels,average='macro'),n)
+                recall_macro_log_val.update(recall_score(y_true=labels,y_pred=predict_labels,average='macro'),n)
+                accuracy_log_val.update(accuracy_score(y_true=labels,y_pred=predict_labels),n)
                 if i % args.echo_batches == args.echo_batches - 1:
-                    print('VAL epoch:%d, mini-batch:%3d, lr=%f, Loss= %.4f, f1= %.4f, precision= %.4f, recall= %.4f, acc= %.4f' % (
-                    epoch + 1, i + 1, lr, loss_log_val.avg, f1_macro_log_val.avg,precision_macro_log_val.avg,recall_macro_log_val.avg,accuracy_log_val.avg))
+                    print('VAL epoch:%d, mini-batch:%3d, lr=%f, f1= %.4f, precision= %.4f, recall= %.4f, acc= %.4f' % (
+                    epoch + 1, i + 1, lr, f1_macro_log_val.avg,precision_macro_log_val.avg,recall_macro_log_val.avg,accuracy_log_val.avg))
             
-            print('epoch:%d, VAL : Loss= %.4f, f1= %.4f, precision= %.4f, recall= %.4f, acc= %.4f\n' % (
-            epoch + 1, loss_log_val.avg, f1_macro_log_val.avg,precision_macro_log_val.avg,recall_macro_log_val.avg,accuracy_log_val.avg))
-            log_file.write('epoch:%d, VAL : Loss= %.4f, f1= %.4f, precision= %.4f, recall= %.4f, acc= %.4f\n' % (
-            epoch + 1, loss_log_val.avg, f1_macro_log_val.avg,precision_macro_log_val.avg,recall_macro_log_val.avg,accuracy_log_val.avg))
+            print('epoch:%d, VAL : f1= %.4f, precision= %.4f, recall= %.4f, acc= %.4f\n' % (
+            epoch + 1, f1_macro_log_val.avg,precision_macro_log_val.avg,recall_macro_log_val.avg,accuracy_log_val.avg))
+            log_file.write('epoch:%d, VAL : f1= %.4f, precision= %.4f, recall= %.4f, acc= %.4f\n' % (
+            epoch + 1, f1_macro_log_val.avg,precision_macro_log_val.avg,recall_macro_log_val.avg,accuracy_log_val.avg))
             log_file.flush()
             
                 
@@ -142,7 +146,7 @@ if __name__=='__main__':
     parser.add_argument('--log', action='store_true', default='Training_log/SingleWoProto', help='training log path')
     parser.add_argument('--gpu', type=bool, default=False, help='Use gpu or cpu')
     parser.add_argument('--lr', type=float, default=0.001, help='initial learning rate')
-    parser.add_argument('--batchsize', type=int, default=128, help='initial batchsize')
+    parser.add_argument('--batchsize', type=int, default=256, help='initial batchsize')
     parser.add_argument('--step_size', type=int, default=5, help='how many epochs lr decays once')
     parser.add_argument('--val_per_epoch', type=int, default=1, help='how many train epoch per val')
     parser.add_argument('--gamma', type=float, default=0.5, help='gamma of optim.lr_scheduler.StepLR, decay of lr')

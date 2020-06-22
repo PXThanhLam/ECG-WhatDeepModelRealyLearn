@@ -24,21 +24,19 @@ class ResBlock(nn.Module):
         assert len(out_chanels)==len(kernel_sizes)==len(paddings)==len(paddings)
         super(ResBlock, self).__init__()
         num_stack=len(out_chanels)
-        self.conv_lists=[]
+        conv_lists=[]
         for idx in range(num_stack):
             if idx==0:
-                self.conv_lists.append(ConvLayer1D(in_chanel,out_chanels[0],kernel_sizes[0],strides[0],paddings[0],isbatchnorm=False))
+                conv_lists.append(ConvLayer1D(in_chanel,out_chanels[0],kernel_sizes[0],strides[0],paddings[0],isbatchnorm=False))
             else:
                 if idx!=num_stack-1:
-                    self.conv_lists.append(ConvLayer1D(out_chanels[idx-1],out_chanels[idx],kernel_sizes[idx],strides[idx],paddings[idx],isbatchnorm=False))
+                    conv_lists.append(ConvLayer1D(out_chanels[idx-1],out_chanels[idx],kernel_sizes[idx],strides[idx],paddings[idx],isbatchnorm=False))
                 else:
-                    self.conv_lists.append(ConvLayer1D(out_chanels[idx-1],out_chanels[idx],kernel_sizes[idx],strides[idx],paddings[idx],isbatchnorm=True))
-    
+                    conv_lists.append(ConvLayer1D(out_chanels[idx-1],out_chanels[idx],kernel_sizes[idx],strides[idx],paddings[idx],isbatchnorm=True))
+        self.stack_conv=nn.Sequential(*conv_lists)
     def forward(self, x,use_batchnorm=True,resiudal=True):
-        x_copy=copy.copy(x)
-        for layer in self.conv_lists:
-            x_copy=layer(x_copy)
-        return x+x_copy if resiudal else x_copy   
+        x_conv=self.stack_conv(x)
+        return x+x_conv if resiudal else x_conv   
 
 
 class AttentionWithContext(nn.Module):
@@ -49,7 +47,7 @@ class AttentionWithContext(nn.Module):
     
     def forward(self, x):
         hidden_x=nn.Tanh()(self.W(x.permute(0,2,1)))
-        attention_score=nn.Softmax()(self.U(hidden_x)).permute(0,2,1)
+        attention_score=nn.Softmax(dim=1)(self.U(hidden_x)).permute(0,2,1)
         return torch.sum(attention_score*x,dim=2),attention_score
 
 
@@ -119,6 +117,7 @@ class SingleBackBoneNet(nn.Module):
 
 
 if __name__=='__main__':
-    x=torch.zeros(size=(4,1,280))
-    model=SingleBackBoneNet()
-    summary(model,input_data=x)
+    x=torch.randn(size=(4,128,8))
+    print(AttentionWithContext(128,128)(x)[0].shape)
+    # model=SingleBackBoneNet()
+    # summary(model,input_data=x)
