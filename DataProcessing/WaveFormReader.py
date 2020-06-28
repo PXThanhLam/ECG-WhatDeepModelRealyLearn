@@ -160,17 +160,19 @@ def t_wave_extractor(ecg_signals,r_positons,fs,annotation):
     return np.asarray(ecg_peaks,dtype=np.int),ecg_anno
 
 def normalize(x):
-    return (x-min(x))/(max(x)-min(x))
+    min_value=-13.04
+    max_value=11.55
+    return x#(x-min_value)/(max_value-min_value)
 
 def convert_to_mit_anno(label):
     if label in ['L','N','R','e','j']:
         return 'N'
-    elif label in ['A','J','S','a']:
-        return 'S'
     elif label in ['E','V']:
         return 'V'
     elif label=='F':
         return 'F'
+    elif label in ['A','J','S','a']:
+        return 'S'
     # elif label in ['|','Q','f']:
     #     return 'Q'
     else:
@@ -179,9 +181,9 @@ def convert_to_mit_anno(label):
 def get_data(file_path,resample_rate=280,use_mit=True,list_patience=None,mode='train',test_mode='intra'):
     if use_mit and test_mode=='intra':
         if mode=='train':
-            list_patience=[101]#[101, 106, 108,109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220, 223,230]
+            list_patience=[101, 106, 108,109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220, 223,230]
         else:
-            list_patience=[100, 103, 105,111, 113, 117, 121, 123, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
+            list_patience=[100]#[100, 103, 105,111, 113, 117, 121, 123, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
     else:
         list_patience=[]
         for patience in  os.listdir(file_path):
@@ -217,9 +219,9 @@ def get_data(file_path,resample_rate=280,use_mit=True,list_patience=None,mode='t
         # print(len(patience_anno))
         # print('----------')
         # for i in range(len(data_patience[patience][0])):
-        #     if data_patience[patience][1][i]!='N':
+        #     if data_patience[patience][1][i]!='C':
         #         plt.plot(data_patience[patience][0][i])
-        #         plt.text(100,1,data_patience[patience][1][i])
+        #         plt.text(100,0.55,data_patience[patience][1][i])
         #         plt.show()
     return data_patience
 

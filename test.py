@@ -8,13 +8,14 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 np.set_printoptions(suppress=True)
-model=SingleBackBoneNet()
-s=torch.load('Save_model/SingleWoProto/save_intra_41.pth')
-model.load_state_dict(torch.load('Save_model/SingleWoProto/save_intra_41.pth')())
+model=SingleBackBoneNet(num_class=2)
+model.load_state_dict(torch.load('Save_model/SingleWoProto/save_intra_2_NV_only.pth'))
 model.to('cpu')
 model.eval()
-val_data = Singledata_train_test(train_or_test='train',test_mode='intra')
-dataloader_val = DataLoader(val_data, batch_size=256, shuffle=True)
+val_data = Singledata_train_test(train_or_test='test',test_mode='intra')
+dataloader_val = DataLoader(val_data, batch_size=1, shuffle=True)
+num_true=0
+total=0
 with torch.no_grad():    
     for i,sample_batched in enumerate(dataloader_val):
         inputs,(labels,one_hot_labels)=sample_batched
@@ -31,9 +32,14 @@ with torch.no_grad():
         print(labels)
         print('-------------------')
         if predict_labels!=labels:
-            plt.plot(inputs[0][0])
-            plt.text(100,1,str(labels))
-            plt.text(200,1,str(predict_labels))
-            plt.show()
+            break
+            # plt.plot(inputs[0][0])
+            # plt.text(100,1,str(predict_labels))
+            # plt.text(200,1,str(labels))
+            # plt.show()
+        else:
+            num_true+=1
+        total+=1
+        print('acc so far :'+ str(num_true/total))
 
 
