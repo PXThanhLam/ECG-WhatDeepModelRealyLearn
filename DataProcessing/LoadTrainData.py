@@ -34,13 +34,13 @@ class Singledata_train_test(Dataset):
     
     def convert_ann_to_num_and_onehot(self,anno):
         if anno=='N':
-            return 0,[1,0]
+            return 0,[1,0,0,0]
         elif anno=='V':
-            return 1,[0,1]
-        # elif anno=='F':
-        #     return 2,[0,0,1,0]
-        # elif anno=='S':
-        #     return 3,[0,0,0,1]
+            return 1,[0,1,0,0]
+        elif anno=='F':
+            return 2,[0,0,1,0]
+        elif anno=='S':
+            return 3,[0,0,0,1]
 
     def __len__(self):
         return len(self.signals)
@@ -129,10 +129,6 @@ class Multidata_train_test(Dataset):
             [self.convert_ann_to_num(anno) for anno in self.labels[patience_index][left_index:left_index+self.seq_len]],\
             [self.convert_ann_to_one_hot(anno) for anno in self.labels[patience_index][left_index:left_index+self.seq_len]]
 
-            
-
-
-        
     def __len__(self):
         return reduce(lambda a,b : a+b,self.len_signal_per_patience)
         

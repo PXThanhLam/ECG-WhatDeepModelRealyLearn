@@ -123,30 +123,19 @@ class MultiBackBoneNet(nn.Module):
         self.lstm=nn.LSTM(input_size=128,hidden_size=128,num_layers=2,bidirectional=True)
         self.classifier=nn.Linear(128*2,num_class)
     
-    def forward(self, x):
+    def forward(self, x,return_feature=False):
         x_reshape=torch.reshape(x,(x.shape[0]*x.shape[1],x.shape[2],x.shape[3]))
         signal_encoder,internal_attention_score=self.SingleBackBone(x_reshape,True)
         signal_encoder=torch.reshape(signal_encoder,(x.shape[0],x.shape[1],signal_encoder.shape[1]))
         lstm_out=self.lstm(signal_encoder.permute(1,0,2))[0].permute(1,0,2)
         lstm_out=torch.reshape(lstm_out,(x.shape[0]*x.shape[1],lstm_out.shape[2]))
+        if return_feature:
+            return lstm_out,torch.reshape(internal_attention_score,(x.shape[0],x.shape[1],internal_attention_score.shape[2]))
         out_put=self.classifier(lstm_out)
         return out_put,torch.reshape(internal_attention_score,(x.shape[0],x.shape[1],internal_attention_score.shape[2]))
 
 
         
-
-
-
-
-
-
-
-
-
-
-
-
-
 if __name__=='__main__':
     x=torch.randn(size=(16,10,1,280))
     print(MultiBackBoneNet(SingleBackBoneNet())(x)[0].shape)
