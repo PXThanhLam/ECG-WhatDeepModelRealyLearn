@@ -133,7 +133,7 @@ def train(args,test_mode='intra',):
             for i,sample_batched in enumerate(dataloader_val_batch):
                 signal_batch,label_batch,one_hot_label_batch=sample_batched
                 dataloader_val_cand=DataLoader(val_data,batch_size=len(val_data),shuffle=True)
-                dataloader_val_cand_iter=iter(dataloader_train_cand)
+                dataloader_val_cand_iter=iter(dataloader_val_cand)
                 signal_cand, label_cand,one_hot_label_cand=next(dataloader_val_cand_iter)
                 signal_batch=torch.stack(signal_batch).permute(1,0,2)
                 one_hot_label_batch=torch.stack(one_hot_label_batch).transpose(1,0)

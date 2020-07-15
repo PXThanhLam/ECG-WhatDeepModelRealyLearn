@@ -26,15 +26,16 @@ def train(args,test_mode='intra',):
     log_file.flush()
 
     model=PrototypeNet(SingleBackBoneNet(),attention_dim=128,feature_dim=128,hidden_dim=128,class_hidden_dim=128)
+    model.load_state_dict(torch.load('/content/NCKHECG/Save_model/SingleWithProto/save_intra_0.pth'))
     model=model.cuda() if args.gpu else model.cpu()
     for name,param in model.named_parameters():
         print(name)    
-
+ 
 
     lr=args.lr
     optimizer=optim.Adam(model.parameters(),lr=lr)
     scheduler=optim.lr_scheduler.StepLR(optimizer,step_size=args.step_size,gamma=args.gamma)
-
+    
     focal_lost=FocalLoss(alpha=torch.Tensor([0.5,5,50,20]))
     focal_lost=focal_lost.cuda() if args.gpu else focal_lost.cpu()
     macro_f1_lost=MacroF1Loss().cuda() if args.gpu else MacroF1Loss().cpu()
@@ -42,7 +43,7 @@ def train(args,test_mode='intra',):
     ce_weights_lost=ce_weights_lost.cuda() if args.gpu else ce_weights_lost.cpu()
     train_data=Singledata_train_test(train_or_test='train',test_mode=test_mode)
     dataloader_train_batch=DataLoader(train_data,batch_size=args.batchsize,shuffle=True)
-    for epoch in range(args.epochs):
+    for epoch in range(args.epochs):         
         loss_log=AvgrageMeter()
         f1_macro_log=AvgrageMeter()
         precision_macro_log=AvgrageMeter()
@@ -70,8 +71,7 @@ def train(args,test_mode='intra',):
             optimizer.zero_grad()
             
             logits_orig_batch,logits_weighted_batch,logits_joint_batch,weight_coefs_batch=model(signal_batch.float(),signal_cand.float())
-            print(logits_joint_batch.shape)
-            print(one_hot_label_batch.shape)
+           
             softmax_joint_op=0.9*macro_f1_lost(y_pred=logits_joint_batch, y_true=one_hot_label_batch.float())\
                  +0.1*ce_weights_lost(y_pred=logits_joint_batch, y_true=label_batch.long())
             softmax_orig_key_op=0.9*macro_f1_lost(y_pred=logits_orig_batch, y_true=one_hot_label_batch.float())\
@@ -121,30 +121,37 @@ def train(args,test_mode='intra',):
         with torch.no_grad():
             val_data = Singledata_train_test(train_or_test='test',test_mode=test_mode)
             dataloader_val_batch=DataLoader(val_data,batch_size=args.batchsize,shuffle=True)
-            
 
+            dataloader_val_cand=DataLoader(train_data,batch_size=len(train_data),shuffle=True)
+            dataloader_val_cand_iter=iter(dataloader_val_cand)
+            signal_cand, (label_cand,one_hot_label_cand)=next(dataloader_val_cand_iter)
+            signal_cand=torch.stack(signal_cand).permute(1,0,2)
+            one_hot_label_cand=torch.stack(one_hot_label_cand).transpose(1,0)
+            if args.gpu:
+                signal_cand=signal_cand.cuda()
+            else:
+                signal_cand=signal_cand.cpu()
+
+            encoded_cand_keys, _, encoded_cand_values=model.encoder(signal_cand.float())
             for i,sample_batched in enumerate(dataloader_val_batch):
                 signal_batch,(label_batch,one_hot_label_batch)=sample_batched
-                dataloader_val_cand=DataLoader(val_data,batch_size=len(val_data),shuffle=True)
-                dataloader_val_cand_iter=iter(dataloader_train_cand)
-                signal_cand, (label_cand,one_hot_label_cand)=next(dataloader_val_cand_iter)
                 signal_batch=torch.stack(signal_batch).permute(1,0,2)
                 one_hot_label_batch=torch.stack(one_hot_label_batch).transpose(1,0)
-                signal_cand=torch.stack(signal_cand).permute(1,0,2)
-                one_hot_label_cand=torch.stack(one_hot_label_cand).transpose(1,0)
+                
             
                 if args.gpu:
                     signal_batch,label_batch,one_hot_label_batch=signal_batch.cuda(),label_batch.cuda(),one_hot_label_batch.cuda()
-                    signal_cand,label_cand,one_hot_label_cand=signal_cand.cuda(),label_cand.cuda(),one_hot_label_cand.cuda()
+                    label_cand,one_hot_label_cand=label_cand.cuda(),one_hot_label_cand.cuda()
                 else:
                     signal_batch,label_batch,one_hot_label_batch=signal_batch.cpu(),label_batch.cpu(),one_hot_label_batch.cpu()
-                    signal_cand,label_cand,one_hot_label_cand=signal_cand.cpu(),label_cand.cpu(),one_hot_label_cand.cpu()
-                    optimizer.zero_grad()
-
+                    label_cand,one_hot_label_cand=label_cand.cpu(),one_hot_label_cand.cpu()
+                optimizer.zero_grad()
+                logits_orig_batch,logits_weighted_batch,logits_joint_batch,weight_coefs_batch=\
+                model(signal_batch.float(),signal_cand.float(),encoded_cand_keys=encoded_cand_keys,encoded_cand_values=encoded_cand_values)
+ 
                 n = signal_batch.size(0)
                 predict_labels=torch.argmax(logits_weighted_batch,dim=1).cpu().data.numpy()
                 label_batch=label_batch.cpu().data.numpy()
-
                 f1_macro_log_val.update(f1_score(y_true=label_batch,y_pred=predict_labels,average='macro'),n)
                 precision_macro_log_val.update(precision_score(y_true=label_batch,y_pred=predict_labels,average='macro'),n)
                 recall_macro_log_val.update(recall_score(y_true=label_batch,y_pred=predict_labels,average='macro'),n)
@@ -167,8 +174,8 @@ if __name__=='__main__':
     parser.add_argument('--log', action='store_true', default='Training_log/SingleWithProto', help='training log path')
     parser.add_argument('--gpu', type=bool, default=False, help='Use gpu or cpu')
     parser.add_argument('--lr', type=float, default=0.001, help='initial learning rate')
-    parser.add_argument('--batchsize', type=int, default=16, help='initial batchsize')
-    parser.add_argument('--candsize', type=int, default=256, help='candidate size')
+    parser.add_argument('--batchsize', type=int, default=512, help='initial batchsize')
+    parser.add_argument('--candsize', type=int, default=12000, help='candidate size')
     parser.add_argument('--step_size', type=int, default=5, help='how many epochs lr decays once')
     parser.add_argument('--val_per_epoch', type=int, default=1, help='how many train epoch per val')
     parser.add_argument('--gamma', type=float, default=0.5, help='gamma of optim.lr_scheduler.StepLR, decay of lr')

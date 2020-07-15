@@ -38,16 +38,16 @@ class PrototypeNet(nn.Module):
         return weighted_encoded, weight_coefs
     def encoder(self,x):
         feature_embeding,_=self.BackBone(x,return_feature=True)
-        print(feature_embeding.shape)
         feature_embeding=self.proj_feature(feature_embeding)
         feature_embeding=self.layernorm(feature_embeding)
         key=self.encoded_key(feature_embeding)
         querry=self.encoded_querry(feature_embeding)
         value=self.encoded_value(feature_embeding)
         return key,querry,value
-    def forward(self, signal_batch,signal_cand,norm_method="sparsemax",alpha_intermediate=0.5):
+    def forward(self, signal_batch,signal_cand,norm_method="sparsemax",alpha_intermediate=0.5,encoded_cand_keys=None,encoded_cand_values=None):
         _, encoded_batch_queries, encoded_batch_values=self.encoder(signal_batch)
-        encoded_cand_keys, _, encoded_cand_values=self.encoder(signal_cand)
+        if encoded_cand_keys==None:
+            encoded_cand_keys, _, encoded_cand_values=self.encoder(signal_cand)
         weighted_encoded_batch, weight_coefs_batch=self.relational_attention(encoded_batch_queries,
                     encoded_cand_keys,
                     encoded_cand_values,norm_method)
@@ -69,6 +69,8 @@ if __name__=='__main__':
     model=PrototypeNet(SingleBackBoneNet(),attention_dim=27,feature_dim=128,hidden_dim=128,class_hidden_dim=128)
     summary(model,input_data=(batch,cand))
     logits_orig_batch,logits_weighted_batch,logits_joint_batch,weight_coefs_batch=model(batch,cand)
+    print(weight_coefs_batch.shape)
+    print(torch.sum(weight_coefs_batch[0]))
     
     
 

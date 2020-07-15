@@ -181,7 +181,7 @@ def convert_to_mit_anno(label):
 def get_data(file_path,resample_rate=280,use_mit=True,list_patience=None,mode='train',test_mode='intra'):
     if use_mit and test_mode=='intra':
         if mode=='train':
-            list_patience=[101]#[101, 106, 108,109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220, 223,230]
+            list_patience=[101, 106, 108,109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220, 223,230]
         else:
             list_patience=[100]#[100, 103, 105,111, 113, 117, 121, 123, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
     else:
@@ -272,3 +272,18 @@ if __name__=='__main__':
         plt.scatter(t_wave,test_signal[t_wave],facecolor='red',s=20)
         plt.scatter(sample[view_start_index:view_end_index]-sample[view_start_index]+offset,test_signal[sample[view_start_index:view_end_index]-sample[view_start_index]+offset],facecolor='green',s=20)
         plt.show()
+'''
+def convert_to_mit_anno(label):
+    if label =='N':
+        return 'N'
+    elif label in['E','V']:
+        return 'V'
+    elif label in ['A','J','S','a']:
+        return 'S'
+    elif label=='L':
+        return 'L'
+    elif label =='R':
+        return 'R'
+    else:
+        return 'none'
+'''
